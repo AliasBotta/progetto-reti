@@ -2,7 +2,11 @@
 name = "mininet-config"
 version = "0.1.0"
 description = "Configurazione topologia di rete in Mininet."
-requires-python = ">=3.13"
+requires-python = ">=3.9"
 dependencies = [
     "mininet>=2.3.0.dev6",
+    "pip==20.3.4",
+    "setuptools==67.6.1",
+    #"ryu>=4.34", # L'installazione effettuata con uv fallisce
+    # Dev'essere svolta manualmente con `pip install ryu` nel venv creato
 ]

@@ -1,5 +1,9 @@
 version = 1
-requires-python = ">=3.13"
+requires-python = ">=3.9"
+resolution-markers = [
+    "python_full_version >= '3.13'",
+    "python_full_version < '3.13'",
+]
 
 [[package]]
 name = "mininet"
@@ -19,16 +23,31 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "mininet" },
+    { name = "pip" },
+    { name = "setuptools" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "mininet", specifier = ">=2.3.0.dev6" }]
+requires-dist = [
+    { name = "mininet", specifier = ">=2.3.0.dev6" },
+    { name = "pip", specifier = "==20.3.4" },
+    { name = "setuptools", specifier = "==67.6.1" },
+]
+
+[[package]]
+name = "pip"
+version = "20.3.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/7f/55721ad0501a9076dbc354cc8c63ffc2d6f1ef360f49ad0fbcce19d68538/pip-20.3.4.tar.gz", hash = "sha256:6773934e5f5fc3eaa8c5a44949b5b924fc122daa0a8aa9f80c835b4ca2a543fc", size = 1530646 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/79/8a850fe3496446ff0d584327ae44e7500daf6764ca1a382d2d02789accf7/pip-20.3.4-py2.py3-none-any.whl", hash = "sha256:217ae5161a0e08c0fb873858806e3478c9775caffce5168b50ec885e358c199d", size = 1522101 },
+]
 
 [[package]]
 name = "setuptools"
-version = "75.8.0"
+version = "67.6.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/92/ec/089608b791d210aec4e7f97488e67ab0d33add3efccb83a056cbafe3a2a6/setuptools-75.8.0.tar.gz", hash = "sha256:c5afc8f407c626b8313a86e10311dd3f661c6cd9c09d4bf8c15c0e11f9f2b0e6", size = 1343222 }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/46/22ec35f286a77e6b94adf81b4f0d59f402ed981d4251df0ba7b992299146/setuptools-67.6.1.tar.gz", hash = "sha256:257de92a9d50a60b8e22abfcbb771571fde0dbf3ec234463212027a4eeecbe9a", size = 2486256 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/8a/b9dc7678803429e4a3bc9ba462fa3dd9066824d3c607490235c6a796be5a/setuptools-75.8.0-py3-none-any.whl", hash = "sha256:e3982f444617239225d675215d51f6ba05f845d4eec313da4418fdbb56fb27e3", size = 1228782 },
+    { url = "https://files.pythonhosted.org/packages/0b/fc/8781442def77b0aa22f63f266d4dadd486ebc0c5371d6290caf4320da4b7/setuptools-67.6.1-py3-none-any.whl", hash = "sha256:e728ca814a823bf7bf60162daf9db95b93d532948c4c0bea762ce62f60189078", size = 1089263 },
 ]
