@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Servizio di Misurazione RTT</h2>
+<p>
+  Inserisci IP (es: 8.8.8.8) oppure un hostname (es: h1) se stai usando Mininet
+  o hai una risoluzione appropriata.
+</p>
+
+<form method="GET" action="/show_history" class="form-inline mb-3">
+  <div class="form-group">
+    <label for="ip_dest" class="mr-2">Host (IP/Hostname):</label>
+    <input type="text" class="form-control mr-3" id="ip_dest" name="ip_dest" placeholder="8.8.8.8 o h1" required>
+  </div>
+  <button type="submit" class="btn btn-secondary">Vedi Storico</button>
+</form>
+
+<hr>
+
+<form method="POST" action="/start_measurement" class="form-inline">
+  <div class="form-group mb-2">
+    <label for="ip_dest" class="mr-2">Host (IP/Hostname):</label>
+    <input type="text" class="form-control" id="ip_dest" name="ip_dest" placeholder="8.8.8.8 o h1" required>
+  </div>
+  <div class="form-group mx-sm-3 mb-2">
+    <label for="duration" class="mr-2">Durata (s):</label>
+    <input type="number" class="form-control" id="duration" name="duration" value="10" min="1" required>
+  </div>
+  <button type="submit" class="btn btn-primary mb-2">Avvia Misurazione</button>
+</form>
+{% endblock %}
