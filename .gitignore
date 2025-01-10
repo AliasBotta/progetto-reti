@@ -8,3 +8,4 @@ server_http/lib64/
 server_http/pyvenv.cfg
 server_http/*.db
 server_http/lib64
+mininet_config/.venv/
