@@ -66,19 +66,30 @@ topos: Dict[str, Topo] = {
 }
 
 @dataclass(frozen=True)
+class StaticRoute:
+    destination: str
+    gateway: str
+
+
+@dataclass(frozen=True)
 class SwitchConfig:
     id: int
     addresses: List[str] = field(default_factory=list)
-
-    def yield_addresses(self):
-        yield from self.addresses
+    routes: List[StaticRoute] = field(default_factory=list)
 
 
 def post_configs(endpoint: str, configs: List[SwitchConfig]):
     for switch in configs:
         id = switch.id
-        for address in switch.yield_addresses():
+
+        for address in switch.addresses:
             requests.post(url=f"{endpoint}/router/{id:016}", json={"address": address})
+
+        for route in switch.routes:
+            requests.post(url=f"{endpoint}/router/{id:016}", json={
+                "destination": route.destination,
+                "gateway": route.gateway,
+            })
 
 
 def create_network():
@@ -90,9 +101,17 @@ def create_network():
         log.info(sw.cmd(f'ovs-vsctl set Bridge sw{switch_id} protocols=OpenFlow13'))
 
     switches_config = [
-        SwitchConfig(id=1, addresses=["10.0.0.254/24", "180.0.0.1/30", "200.0.0.1/30"]),
+        SwitchConfig(
+            id=1,
+            addresses=["10.0.0.254/24", "180.0.0.1/30", "200.0.0.1/30"],
+            routes=[StaticRoute(destination="192.168.1.0/24", gateway="200.0.0.2")]
+        ),
         SwitchConfig(id=2, addresses=["11.0.0.254/24", "180.0.0.2/30", "180.1.1.1/30"]),
-        SwitchConfig(id=3, addresses=["192.168.1.254/24", "200.0.0.2/30", "170.0.0.1/30"]),
+        SwitchConfig(
+            id=3,
+            addresses=["192.168.1.254/24", "200.0.0.2/30", "170.0.0.1/30"],
+            routes=[StaticRoute(destination="10.0.0.0/24", gateway="200.0.0.1")],
+        ),
         SwitchConfig(id=4, addresses=["10.8.1.254/24", "170.0.0.2/30", "180.1.2.1/30"]),
         SwitchConfig(id=5, addresses=["180.1.1.2/30", "180.1.2.2/30"]),
     ]
