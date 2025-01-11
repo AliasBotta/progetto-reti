@@ -25,24 +25,24 @@ class ProjectTopology(Topo):
 
     def build(self):
         # Subnet 1
-        h1 = self.addHost('h1', ip='10.0.0.1/24')
-        h2 = self.addHost('h2', ip='10.0.0.2/24')
+        h1 = self.addHost('h1', ip='10.0.0.1/24', defaultRoute='via 10.0.0.254')
+        h2 = self.addHost('h2', ip='10.0.0.2/24', defaultRoute='via 10.0.0.254')
         sw1 = self.addSwitch('sw1')
         for host in (h1, h2):
             self.addLink(host, sw1, bw=100, delay='0.05ms')
 
         # Subnet 2
-        h3 = self.addHost('h3', ip='11.0.0.1/24')
+        h3 = self.addHost('h3', ip='11.0.0.1/24', defaultRoute='via 11.0.0.254')
         sw2 = self.addSwitch('sw2')
         self.addLink(h3, sw2, bw=1, delay='0.5ms')
 
         # Subnet 3
-        h4 = self.addHost('h4', ip='192.168.1.1/24')
+        h4 = self.addHost('h4', ip='192.168.1.1/24', defaultRoute='via 192.168.1.254')
         sw3 = self.addSwitch('sw3')
         self.addLink(h4, sw3, bw=100, delay='0.05ms')
 
         # Subnet 4
-        h5 = self.addHost('h5', ip='10.8.1.1/24')
+        h5 = self.addHost('h5', ip='10.8.1.1/24', defaultRoute='via 10.8.1.254')
         sw4 = self.addSwitch('sw4')
         self.addLink(h5, sw4, bw=100, delay='0.05ms')
 
