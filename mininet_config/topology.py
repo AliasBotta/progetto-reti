@@ -93,7 +93,9 @@ def post_configs(endpoint: str, configs: List[SwitchConfig]):
 
 
 def create_network():
-    net = Mininet(topo=ProjectTopology(), switch=OVSKernelSwitch, link=TCLink, autoSetMacs=True, controller=RemoteController, waitConnected=True)
+    net = Mininet(topo=ProjectTopology(), switch=OVSKernelSwitch, link=TCLink, autoSetMacs=True, controller=None, waitConnected=True)
+    c0 = net.addController('c0', controller=RemoteController, port=6653)
+    c1 = net.addController('c1', controller=RemoteController, port=6000)
     net.start()
 
     for switch_id in range(1, 5+1):
@@ -104,13 +106,13 @@ def create_network():
         SwitchConfig(
             id=1,
             addresses=["10.0.0.254/24", "180.0.0.1/30", "200.0.0.1/30"],
-            routes=[StaticRoute(destination="192.168.1.0/24", gateway="200.0.0.2")]
+            # routes=[StaticRoute(destination="192.168.1.0/24", gateway="200.0.0.2")]
         ),
         SwitchConfig(id=2, addresses=["11.0.0.254/24", "180.0.0.2/30", "180.1.1.1/30"]),
         SwitchConfig(
             id=3,
             addresses=["192.168.1.254/24", "200.0.0.2/30", "170.0.0.1/30"],
-            routes=[StaticRoute(destination="10.0.0.0/24", gateway="200.0.0.1")],
+            # routes=[StaticRoute(destination="10.0.0.0/24", gateway="200.0.0.1")],
         ),
         SwitchConfig(id=4, addresses=["10.8.1.254/24", "170.0.0.2/30", "180.1.2.1/30"]),
         SwitchConfig(id=5, addresses=["180.1.1.2/30", "180.1.2.2/30"]),
