@@ -36,6 +36,16 @@ class ProjectTopology(Topo):
         h5 = self.addHost('h5', ip='10.8.1.1/24')
         sw4 = self.addSwitch('sw4')
         self.addLink(h5, sw4, bw=100, delay='0.05ms')
+
+        # Switch 5 interposto fra il 2 e 4
+        sw5 = self.addSwitch('sw5')
+
+        # Link per collegare i diversi switch fra di loro
+        self.addLink(sw1, sw2, bw=20, delay='2ms')
+        self.addLink(sw1, sw3, bw=1,  delay='2ms')
+        self.addLink(sw2, sw5, bw=20, delay='2ms')
+        self.addLink(sw3, sw4, bw=5,  delay='2ms')
+        self.addLink(sw4, sw5, bw=20, delay='2ms')
     
 
 # Mininet si aspetta che sia presente un dizionario `topos`
