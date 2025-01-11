@@ -1,5 +1,6 @@
 from mininet.net import Mininet
-from mininet.node import Controller, RemoteController, OVSKernelSwitch
+from mininet.node import RemoteController, OVSKernelSwitch
+from mininet.link import TCLink
 from mininet.topo import Topo
 from mininet.cli import CLI
 from mininet import log
@@ -62,12 +63,12 @@ topos = {
 }
 
 def create_network():
-    c0 = RemoteController('c0', ip='127.0.0.1', protocols="OpenFlow13")
-    net = Mininet(topo=ProjectTopology(), switch=OVSKernelSwitch, autoSetMacs=True, controller=c0)
-    c0.start()
+    net = Mininet(topo=ProjectTopology(), switch=OVSKernelSwitch, link=TCLink, autoSetMacs=True, controller=RemoteController, waitConnected=True)
+    net.start()
 
     for switch_id in range(1, 5+1):
-        log.info(net.get(f'sw{switch_id}').cmd(f'ovs-vsctl set Bridge sw{switch_id} protocols=OpenFlow13'))
+        sw = net.get(f'sw{switch_id}')
+        log.info(sw.cmd(f'ovs-vsctl set Bridge sw{switch_id} protocols=OpenFlow13'))
 
     response = requests.post(url='http://localhost:8080/router/0000000000000001', data={
         "address": "180.0.0.1/30",
