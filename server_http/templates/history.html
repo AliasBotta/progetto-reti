@@ -37,10 +37,11 @@
   </div>
 </div>
 
+<!-- INclusione delle librerie CHart.js e del plugin di annotazione per CHart.js, utilizzate per disegnare grafici e aggiungere annotazioni ai grafici -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
 <script>
-// Crea linee orizzontali/annotazioni
+// funzione per tracciare la riga di media
 function createMeanAnnotation(meanValue, color='rgba(0,0,0,0.4)', label='Mean') {
   return {
     type: 'line',
@@ -70,7 +71,7 @@ let hostHistoryChart = new Chart(document.getElementById('hostHistoryChart').get
   },
   options: {
     plugins: {
-      annotation: { annotations: {} }
+      annotation: { annotations: {} } // il set di dati sarà poplato dinamicamente
     },
     scales: {
       x: {
@@ -87,9 +88,10 @@ let hostHistoryChart = new Chart(document.getElementById('hostHistoryChart').get
 let hostParam = "{{ ip_dest }}"; // passata dal render_template
 
 // Carica dati da /get_host_history_data?ip_dest=...
+// in particolare viene invocato l'endpoint del server che restituisce dati JSON. 
 fetch(`/get_host_history_data?ip_dest=${encodeURIComponent(hostParam)}`)
   .then(res => res.json())
-  .then(data => {
+  .then(data => { // qui viene aggiornato il grafico coi nuovi dati
     if(!data.chart_data) {
       console.error("Nessun dato per l'host:", hostParam);
       return;

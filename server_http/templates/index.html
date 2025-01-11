@@ -7,6 +7,7 @@
 </p>
 
 <form method="GET" action="/show_history" class="form-inline mb-3">
+  <!-- nb. show_history usa il metodo GET in quanto è una richiesta HTTP atta a recuperare esclusivamente dati dal server, senza effetti collaterali -->
   <div class="form-group">
     <label for="ip_dest" class="mr-2">Host (IP/Hostname):</label>
     <input type="text" class="form-control mr-3" id="ip_dest" name="ip_dest" placeholder="8.8.8.8 o h1" required>
@@ -17,6 +18,7 @@
 <hr>
 
 <form method="POST" action="/start_measurement" class="form-inline">
+  <!-- qui invece usiamo POST in quanto si hanno effetti collaterali, quali l'aggiornamento dello storico delle misurazioni -->
   <div class="form-group mb-2">
     <label for="ip_dest" class="mr-2">Host (IP/Hostname):</label>
     <input type="text" class="form-control" id="ip_dest" name="ip_dest" placeholder="8.8.8.8 o h1" required>
