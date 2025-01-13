@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict
 
 from mininet.net import Mininet
-from mininet.node import RemoteController, OVSKernelSwitch
+from mininet.node import Controller, RemoteController, OVSSwitch
 from mininet.link import TCLink
 from mininet.topo import Topo
 from mininet.cli import CLI
@@ -22,6 +22,12 @@ class TestTopology(Topo):
 
 class ProjectTopology(Topo):
     """Topologia assegnata per il progetto da realizzare."""
+    def __init__(self, *args, **params):
+        self.host_list: List[str] = []
+        self.switch_list: List[str] = []
+        self.link_list: List[int] = []
+
+        super().__init__(*args, **params)
 
     def build(self):
         # Subnet 1
@@ -29,32 +35,37 @@ class ProjectTopology(Topo):
         h2 = self.addHost('h2', ip='10.0.0.2/24', defaultRoute='via 10.0.0.254')
         sw1 = self.addSwitch('sw1')
         for host in (h1, h2):
-            self.addLink(host, sw1, bw=100, delay='0.05ms')
+            self.link_list.append(self.addLink(host, sw1, bw=100, delay='0.05ms'))
 
         # Subnet 2
         h3 = self.addHost('h3', ip='11.0.0.1/24', defaultRoute='via 11.0.0.254')
         sw2 = self.addSwitch('sw2')
-        self.addLink(h3, sw2, bw=1, delay='0.5ms')
+        self.link_list.append(self.addLink(h3, sw2, bw=1, delay='0.5ms'))
 
         # Subnet 3
         h4 = self.addHost('h4', ip='192.168.1.1/24', defaultRoute='via 192.168.1.254')
         sw3 = self.addSwitch('sw3')
-        self.addLink(h4, sw3, bw=100, delay='0.05ms')
+        self.link_list.append(self.addLink(h4, sw3, bw=100, delay='0.05ms'))
 
         # Subnet 4
         h5 = self.addHost('h5', ip='10.8.1.1/24', defaultRoute='via 10.8.1.254')
         sw4 = self.addSwitch('sw4')
-        self.addLink(h5, sw4, bw=100, delay='0.05ms')
+        self.link_list.append(self.addLink(h5, sw4, bw=100, delay='0.05ms'))
 
         # Switch 5 interposto fra il 2 e 4
         sw5 = self.addSwitch('sw5')
 
+        self.host_list.extend(tuple((h1, h2, h3, h4, h5)))
+        self.switch_list.extend(tuple((sw1, sw2, sw3, sw4, sw5)))
+
         # Link per collegare i diversi switch fra di loro
-        self.addLink(sw1, sw2, bw=20, delay='2ms')
-        self.addLink(sw1, sw3, bw=1,  delay='2ms')
-        self.addLink(sw2, sw5, bw=20, delay='2ms')
-        self.addLink(sw3, sw4, bw=5,  delay='2ms')
-        self.addLink(sw4, sw5, bw=20, delay='2ms')
+        self.link_list.append(self.addLink(sw1, sw2, bw=20, delay='2ms'))
+        self.link_list.append(self.addLink(sw1, sw3, bw=1,  delay='2ms'))
+        self.link_list.append(self.addLink(sw2, sw5, bw=20, delay='2ms'))
+        self.link_list.append(self.addLink(sw3, sw4, bw=5,  delay='2ms'))
+        self.link_list.append(self.addLink(sw4, sw5, bw=20, delay='2ms'))
+
+
     
 
 # Mininet si aspetta che sia presente un dizionario `topos`
@@ -64,6 +75,12 @@ topos: Dict[str, Topo] = {
     "test": TestTopology,
     "project": ProjectTopology,
 }
+
+class MultiSwitch(OVSSwitch):
+    """Una classe che connette ciascuno switch a più controller simultaneamente."""
+
+    def start(self, controllers: List[Controller]):
+        return OVSSwitch.start(self, controllers=controllers)
 
 @dataclass(frozen=True)
 class StaticRoute:
@@ -93,14 +110,18 @@ def post_configs(endpoint: str, configs: List[SwitchConfig]):
 
 
 def create_network():
-    net = Mininet(topo=ProjectTopology(), switch=OVSKernelSwitch, link=TCLink, autoSetMacs=True, controller=None, waitConnected=True)
+    net = Mininet(topo=ProjectTopology(), switch=MultiSwitch, link=TCLink, autoSetMacs=True, controller=None, waitConnected=True)
     c0 = net.addController('c0', controller=RemoteController, port=6653)
     c1 = net.addController('c1', controller=RemoteController, port=6000)
     net.start()
 
-    for switch_id in range(1, 5+1):
-        sw = net.get(f'sw{switch_id}')
-        log.info(sw.cmd(f'ovs-vsctl set Bridge sw{switch_id} protocols=OpenFlow13'))
+    print(net.topo.host_list)
+    print(net.topo.switch_list)
+    print(net.topo.link_list)
+
+    for switch_name in net.topo.switch_list:
+        sw = net.get(f'{switch_name}')
+        log.info(sw.cmd(f'ovs-vsctl set Bridge {switch_name} protocols=OpenFlow13'))
 
     switches_config = [
         SwitchConfig(
