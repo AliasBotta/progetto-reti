@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Configurazione topologia di rete in Mininet."
 requires-python = ">=3.9"
 dependencies = [
+    "eventlet==0.30.2",
     "mininet>=2.3.0.dev6",
     "pip==20.3.4",
     "requests>=2.32.3",
