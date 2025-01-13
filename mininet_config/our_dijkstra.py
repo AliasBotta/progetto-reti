@@ -28,7 +28,7 @@ class NetLinkGraph():
         self.switch_map: Dict[int, Switch] = { switch.dp.id: switch for switch in switches }
 
         # Mappa (id_src, id_dst) -> Costo fra i link
-        self.node_adjacency: Dict[Tuple[int, int], int] = defaultdict(lambda: 0)
+        self.node_adjacency: Dict[Tuple[int, int], float] = defaultdict(lambda: 0)
         for link in links.keys():
             src: Port = link.src
             dst: Port = link.dst
