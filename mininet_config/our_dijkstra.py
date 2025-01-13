@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Set, Optional
 from collections import defaultdict
+import json
 import sys
 
 from ryu.base import app_manager
@@ -22,7 +23,7 @@ class DistanceEntry():
     
 
 class NetLinkGraph():
-    def __init__(self, parent_app: app_manager.RyuApp, switches: List[Switch], links: Dict[Link, float]):
+    def __init__(self, parent_app: app_manager.RyuApp, switches: List[Switch], links: Dict[Link, float], connection_parameters={}):
         self.parent_app = parent_app
         self.switch_map: Dict[int, Switch] = { switch.dp.id: switch for switch in switches }
 
@@ -32,8 +33,12 @@ class NetLinkGraph():
             src: Port = link.src
             dst: Port = link.dst
 
+            def weight_function(params):
+                # r, C = params["r"], params["C"]
+                return 1
+
             # I seguenti corrispondono ai PESI dei collegamenti fra switch ADIACENTI
-            self.node_adjacency[src.dpid, dst.dpid] = 1
+            self.node_adjacency[src.dpid, dst.dpid] = weight_function(connection_parameters.get((src.dpid, dst.dpid), None))
             self.node_adjacency[dst.dpid, src.dpid] = 1 # Superfluo, credo
 
         # DEBUG CODE
@@ -59,15 +64,15 @@ class NetLinkGraph():
                     yield other_switch
 
         while to_explore:
-            current_switch_id = min(filter(to_explore.__contains__, distances), key=lambda d: distances.get(d).cost)
-            to_explore.remove(current_switch_id)
-            for neighboring_switch in yield_neighbors_of(current_switch_id):
+            current_switch = min(filter(to_explore.__contains__, distances), key=lambda d: distances.get(d).cost)
+            to_explore.remove(current_switch)
+            for neighboring_switch in yield_neighbors_of(current_switch):
                 if neighboring_switch.dp.id not in to_explore: # Già visitato!
                     continue
 
-                new_cost = distances[current_switch_id].cost + self.node_adjacency[current_switch_id, neighboring_switch.dp.id]
+                new_cost = distances[current_switch].cost + self.node_adjacency[current_switch, neighboring_switch.dp.id]
                 if new_cost < distances[neighboring_switch.dp.id].cost:
-                    distances[neighboring_switch.dp.id] = DistanceEntry(cost=new_cost, previous_dpid=current_switch_id)
+                    distances[neighboring_switch.dp.id] = DistanceEntry(cost=new_cost, previous_dpid=current_switch)
 
         return distances
 
@@ -97,6 +102,16 @@ class DijkstraCommand(ControllerBase):
         switch_list: List[Switch] = get_all_switch(self.__app)
         links_dict: Dict[Link, float] = get_all_link(self.__app)
 
+        # lista = json.loads(req.body)
+        """
+        FORMATO RICHIESTA:
+        [
+            { "switch_src": id_switch_1, "switch_dst": id_switch_2, "ritardo": ..., "capacità": ... },
+            { "switch_src": id_switch_2, "switch_dst": id_switch_1, "ritardo": ..., "capacità": ... },
+            ...
+        ] 
+        """
+
         net_graph = NetLinkGraph(parent_app=self.__app, switches=switch_list, links=links_dict)
         results = net_graph.dijkstra(starting_switch_id=switch_list[0].dp.id)
 
@@ -105,5 +120,14 @@ class DijkstraCommand(ControllerBase):
             print(f"id={r} con costo {it.cost} (Prev: id={net_graph.switch_map[it.previous_dpid].dp.id if it.previous_dpid else None})")        
         print()
 
+        """
+        FORMATO RISPOSTA:
+        [
+            { "switch": id_switch, "destination": ip_rete_destinazione, "gateway": ip_switch_neighbor },
+            { <gli stessi dati, ma per un'altra rotta su un altro switch> },
+            ...
+            <ogni switch dovrebbe avere una rotta per ciascuna subnet nota>
+        ]
+        """
         return Response(status=200)
         
