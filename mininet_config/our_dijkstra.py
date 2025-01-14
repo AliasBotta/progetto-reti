@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict, Tuple, Set, Optional, Union
+from typing import List, Dict, Tuple, Set, Optional, Union, Any
 from collections import defaultdict
 import json
 import sys
@@ -97,8 +97,14 @@ class DijkstraCommand(ControllerBase):
         self.__app = data["app"] # Recuperiamo l'applicazione per poter
         # fare uso dell'API ryu.topology
 
-    def distance_dict_to_json(self, net_graph: NetLinkGraph, networks: List[Dict[str, Union[int, List[str]]]]):
+    def distance_dict_to_json(self, net_graph: NetLinkGraph, networks: List[Dict[str, Union[int, List[str]]]], links: List[Dict[str, Any]]):
         response: List[Dict[str, Union[int, str]]] = []
+        link_map: Dict[Tuple[int, int], Any] = {
+            (entry["src_switch"]["id"], entry["dst_switch"]["id"]): entry
+            for entry in links
+        }
+
+        # TODO: Avrebbe senso invertire questo mapping lato-client?
         all_subnets: Dict[str, int] = {
             subnet: network["switch_id"]
             for network in networks
@@ -110,23 +116,25 @@ class DijkstraCommand(ControllerBase):
             subnets: List[str] = network["subnets"]
 
             results = net_graph.dijkstra(starting_switch_id=switch_id)
-            def _path(to: int, __comes_from: int = None):
+            def _path(to: int, _comes_from: int = None):
                 if to == switch_id:
-                    return __comes_from # Ultimo switch_id non nullo
+                    return _comes_from # Ultimo switch_id non nullo
                 else:
-                    return _path(to=results[to].previous_dpid, __comes_from=to)
+                    return _path(to=results[to].previous_dpid, _comes_from=to)
 
             # Per ogni switch, generare percorso ottimale verso TUTTE le subnet
             response.extend({
                     "switch_id": switch_id,
                     "destination": subnet,
-                    "gateway": _path(to=dst_switch_id),
-                } for subnet, dst_switch_id in all_subnets
+                    "gateway": link_map[switch_id, _path(to=dst_switch_id)]["dst_switch"]["ip_addr"],
+                } for subnet, dst_switch_id in all_subnets.items()
                 if subnet not in subnets
             )
+        
+        return json.dumps(response) # json.dumps è necessario?
 
 
-    @route(name='calc_dijkstra', path='/dijkstra', methods=['GET', 'POST'], requirements={})
+    @route(name='calc_dijkstra', path='/dijkstra', methods=['POST'], requirements={})
     def calc_dijkstra(self, req: Request, **_kwargs) -> Response:
         switch_list: List[Switch] = get_all_switch(self.__app)
         links_dict: Dict[Link, float] = get_all_link(self.__app)
@@ -150,8 +158,7 @@ class DijkstraCommand(ControllerBase):
                 # In questa maniera, è possibile capire cosa mettere nel campo gateway del
                 # valore di ritorno del metodo `dict_to_json`
 
-                { "switch_src": id_switch_1, "switch_dst": id_switch_2, "reaches": <ip_addr>, "ritardo": ..., "capacità": ... },
-                { "switch_src": id_switch_2, "switch_dst": id_switch_1, "reaches": <ip_addr>, "ritardo": ..., "capacità": ... },
+                { "src_switch": { "id": id_switch_1, "ip_addr": <ip_addr_1> }, "dst_switch": { "id": id_switch_2, "ip_addr": <ip_addr_2> }, "ritardo": ..., "capacità": ... },
                 ...
             ]
         }
@@ -165,14 +172,15 @@ class DijkstraCommand(ControllerBase):
         """
         FORMATO RISPOSTA:
         [
-            { "switch": id_switch, "destination": ip_rete_destinazione, "gateway": ip_switch_neighbor },
+            { "switch_id": id_switch, "destination": ip_rete_destinazione, "gateway": ip_switch_neighbor },
             { <gli stessi dati, ma per un'altra rotta su un altro switch> },
             ...
             <ogni switch dovrebbe avere una rotta per ciascuna subnet nota>
         ]
         """
         request = json.loads(req.body)
+        print(request)
         net_graph = NetLinkGraph(parent_app=self.__app, switches=switch_list, links=links_dict)
-        json_response = self.distance_dict_to_json(net_graph=net_graph, networks=request["networks"])
+        json_response = self.distance_dict_to_json(net_graph=net_graph, networks=request["networks"], links=request["links"])
         return Response(status=200, content_type="application/json", body=json_response)
         

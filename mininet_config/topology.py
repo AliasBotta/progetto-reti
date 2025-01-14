@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional, Any
+import json
 
 from mininet.net import Mininet
 from mininet.node import Controller, RemoteController, OVSSwitch
@@ -10,12 +11,29 @@ from mininet import log
 import requests
 
 @dataclass(frozen=True)
+class SwitchData():
+    id: int
+    ip_addr: str
+
+    def to_dict(self):
+        return self.__dict__
+
+
+@dataclass(frozen=True)
 class LinkWithParameters():
     link_info_key: int
-    # switch_1
-    # switch_2
+    src_switch: Optional[SwitchData]
+    dst_switch: Optional[SwitchData]
     bw: int # in Mbps
     delay: str # formato "<numero decimale>ms"
+
+    def to_dict(self):
+        return {
+            "src_switch": None if self.src_switch is None else self.src_switch.to_dict(),
+            "dst_switch": None if self.dst_switch is None else self.dst_switch.to_dict(),
+            "bw": self.bw,
+            "delay": self.delay,
+        }
 
 
 class TestTopology(Topo):
@@ -40,14 +58,28 @@ class ProjectTopology(Topo):
 
     def build(self):
         # Funzione helper per popolare self.link_list
-        def _helper_aggiungi_link(node1, node2, bw: int, delay: str):
-            self.link_list.append(
+        def _helper_aggiungi_link(
+                node1, node2, bw: int, delay: str,
+                src_switch: Optional[SwitchData] = None,
+                dst_switch: Optional[SwitchData] = None,
+            ):
+            self.link_list.extend([
                 LinkWithParameters(
                     link_info_key=self.addLink(node1, node2, bw=bw, delay=delay),
                     bw=bw,
                     delay=delay,
-                )
-            )
+                    src_switch=src_switch,
+                    dst_switch=dst_switch,
+                ),
+                LinkWithParameters(
+                    link_info_key=self.addLink(node1, node2, bw=bw, delay=delay),
+                    bw=bw,
+                    delay=delay,
+                    src_switch=dst_switch, # Invertiti gli switch
+                    dst_switch=src_switch, # !!!
+                ),
+
+            ])
 
         # Subnet 1
         h1 = self.addHost('h1', ip='10.0.0.1/24', defaultRoute='via 10.0.0.254')
@@ -78,14 +110,12 @@ class ProjectTopology(Topo):
         self.switch_list.extend(tuple((sw1, sw2, sw3, sw4, sw5)))
 
         # Link per collegare i diversi switch fra di loro
-        _helper_aggiungi_link(sw1, sw2, bw=20, delay='2ms')
-        _helper_aggiungi_link(sw1, sw3, bw=1,  delay='2ms')
-        _helper_aggiungi_link(sw2, sw5, bw=20, delay='2ms')
-        _helper_aggiungi_link(sw3, sw4, bw=5,  delay='2ms')
-        _helper_aggiungi_link(sw4, sw5, bw=20, delay='2ms')
+        _helper_aggiungi_link(sw1, sw2, bw=20, delay='2ms', src_switch=SwitchData(id=1, ip_addr="180.0.0.1"), dst_switch=SwitchData(id=2, ip_addr="180.0.0.2"))
+        _helper_aggiungi_link(sw1, sw3, bw=1,  delay='2ms', src_switch=SwitchData(id=1, ip_addr="200.0.0.1"), dst_switch=SwitchData(id=3, ip_addr="200.0.0.2"))
+        _helper_aggiungi_link(sw2, sw5, bw=20, delay='2ms', src_switch=SwitchData(id=2, ip_addr="180.1.1.1"), dst_switch=SwitchData(id=5, ip_addr="180.1.1.2"))
+        _helper_aggiungi_link(sw3, sw4, bw=5,  delay='2ms', src_switch=SwitchData(id=3, ip_addr="170.0.0.1"), dst_switch=SwitchData(id=4, ip_addr="170.0.0.2"))
+        _helper_aggiungi_link(sw4, sw5, bw=20, delay='2ms', src_switch=SwitchData(id=4, ip_addr="180.1.2.1"), dst_switch=SwitchData(id=5, ip_addr="180.1.2.2"))
 
-
-    
 
 # Mininet si aspetta che sia presente un dizionario `topos`
 # nello scope globale del proprio file di configurazione,
@@ -127,6 +157,20 @@ def post_configs(endpoint: str, configs: List[SwitchConfig]):
                 "gateway": route.gateway,
             })
 
+def post_configs_raw(endpoint: str, configs: List[Dict[str, Any]]):
+    for entry in configs:
+        id = entry["switch_id"]
+        requests.post(url=f"{endpoint}/router/{id:016}", json={
+            "destination": entry["destination"],
+            "gateway": entry["gateway"],
+        })
+
+def post_routes(endpoint: str, networks: List[Any], links: List[LinkWithParameters]) -> requests.Response:
+    return requests.post(f"{endpoint}/dijkstra", json={
+        "networks": networks,
+        "links": [link.to_dict() for link in links],
+    })
+
 
 def create_network():
     net = Mininet(topo=ProjectTopology(), switch=MultiSwitch, link=TCLink, autoSetMacs=True, controller=None, waitConnected=True)
@@ -159,11 +203,23 @@ def create_network():
     ]
 
     post_configs(endpoint="http://localhost:8080", configs=switches_config)
-    # risposta = chiamata_dijkstra(endpint="...", configs=richiesta)
+    risposta = post_routes(
+        endpoint="http://localhost:8080",
+        networks=[
+            { "switch_id": 1, "subnets": ["10.0.0.0/24"] },
+            { "switch_id": 2, "subnets": ["11.0.0.0/24"] },
+            { "switch_id": 3, "subnets": ["192.168.1.0/24"] },
+            { "switch_id": 4, "subnets": ["10.8.1.0/24"]},
+        ],
+        links=[
+            link for link in net.topo.link_list
+            if link.src_switch is not None
+                and link.dst_switch is not None
+        ],
+    )
 
-    # chiamata_rotte_statiche_forse_con_post_configs(..., configs=riposta_PROCESSATA*)
-
-
+    print(risposta.content)
+    post_configs_raw(endpoint="http://localhost:8080", configs=json.loads(risposta.content))
     CLI(net)
     net.stop()
 
