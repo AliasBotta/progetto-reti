@@ -135,14 +135,23 @@ class DijkstraCommand(ControllerBase):
         """
         FORMATO RICHIESTA:
         {
-            # TODO: Capire come fare per risalire all'IP dell'interfaccia a cui inoltrare ...
             "networks": [
                 { "switch_id": <id>, "subnets": [ <ip_net_addr>, ... ] },
                 { ... }
             ],
             "links": [
-                { "switch_src": id_switch_1, "switch_dst": id_switch_2, "ritardo": ..., "capacità": ... },
-                { "switch_src": id_switch_2, "switch_dst": id_switch_1, "ritardo": ..., "capacità": ... },
+
+                # RISOLTO! Possiamo associare a ogni coppia (switch_src, switch_dst)
+                # un valore di ip_addr di "reperibilità"
+                # e.g. (sw1, sw3) -> "200.0.0.2" perché sw1 "pinga" sw3 su quell'indirizzo
+                # NOTA: *NON* vi è simmetria!!!!!!!!!!!!!!!!!
+                # e.g. (sw3, sw1) -> "200.0.0.1" perché sw3 "pinga" sw1 su un ALTRO indirizzo
+
+                # In questa maniera, è possibile capire cosa mettere nel campo gateway del
+                # valore di ritorno del metodo `dict_to_json`
+
+                { "switch_src": id_switch_1, "switch_dst": id_switch_2, "reaches": <ip_addr>, "ritardo": ..., "capacità": ... },
+                { "switch_src": id_switch_2, "switch_dst": id_switch_1, "reaches": <ip_addr>, "ritardo": ..., "capacità": ... },
                 ...
             ]
         }
