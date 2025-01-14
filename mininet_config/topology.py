@@ -63,22 +63,22 @@ class ProjectTopology(Topo):
                 src_switch: Optional[SwitchData] = None,
                 dst_switch: Optional[SwitchData] = None,
             ):
+            link_info_key = self.addLink(node1, node2, bw=bw, delay=delay)
             self.link_list.extend([
                 LinkWithParameters(
-                    link_info_key=self.addLink(node1, node2, bw=bw, delay=delay),
+                    link_info_key=link_info_key,
                     bw=bw,
                     delay=delay,
                     src_switch=src_switch,
                     dst_switch=dst_switch,
                 ),
                 LinkWithParameters(
-                    link_info_key=self.addLink(node1, node2, bw=bw, delay=delay),
+                    link_info_key=link_info_key,
                     bw=bw,
                     delay=delay,
                     src_switch=dst_switch, # Invertiti gli switch
                     dst_switch=src_switch, # !!!
                 ),
-
             ])
 
         # Subnet 1
@@ -190,13 +190,11 @@ def create_network():
         SwitchConfig(
             id=1,
             addresses=["10.0.0.254/24", "180.0.0.1/30", "200.0.0.1/30"],
-            # routes=[StaticRoute(destination="192.168.1.0/24", gateway="200.0.0.2")]
         ),
         SwitchConfig(id=2, addresses=["11.0.0.254/24", "180.0.0.2/30", "180.1.1.1/30"]),
         SwitchConfig(
             id=3,
             addresses=["192.168.1.254/24", "200.0.0.2/30", "170.0.0.1/30"],
-            # routes=[StaticRoute(destination="10.0.0.0/24", gateway="200.0.0.1")],
         ),
         SwitchConfig(id=4, addresses=["10.8.1.254/24", "170.0.0.2/30", "180.1.2.1/30"]),
         SwitchConfig(id=5, addresses=["180.1.1.2/30", "180.1.2.2/30"]),
@@ -210,6 +208,7 @@ def create_network():
             { "switch_id": 2, "subnets": ["11.0.0.0/24"] },
             { "switch_id": 3, "subnets": ["192.168.1.0/24"] },
             { "switch_id": 4, "subnets": ["10.8.1.0/24"]},
+            { "switch_id": 5, "subnets": []},
         ],
         links=[
             link for link in net.topo.link_list
