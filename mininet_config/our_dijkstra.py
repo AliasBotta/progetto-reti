@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict, Tuple, Set, Optional
+from typing import List, Dict, Tuple, Set, Optional, Union
 from collections import defaultdict
 import json
 import sys
@@ -97,6 +97,35 @@ class DijkstraCommand(ControllerBase):
         self.__app = data["app"] # Recuperiamo l'applicazione per poter
         # fare uso dell'API ryu.topology
 
+    def distance_dict_to_json(self, net_graph: NetLinkGraph, networks: List[Dict[str, Union[int, List[str]]]]):
+        response: List[Dict[str, Union[int, str]]] = []
+        all_subnets: Dict[str, int] = {
+            subnet: network["switch_id"]
+            for network in networks
+            for subnet in network["subnets"]
+        }
+
+        for network in networks:
+            switch_id: int = network["switch_id"] 
+            subnets: List[str] = network["subnets"]
+
+            results = net_graph.dijkstra(starting_switch_id=switch_id)
+            def _path(to: int, __comes_from: int = None):
+                if to == switch_id:
+                    return __comes_from # Ultimo switch_id non nullo
+                else:
+                    return _path(to=results[to].previous_dpid, __comes_from=to)
+
+            # Per ogni switch, generare percorso ottimale verso TUTTE le subnet
+            response.extend({
+                    "switch_id": switch_id,
+                    "destination": subnet,
+                    "gateway": _path(to=dst_switch_id),
+                } for subnet, dst_switch_id in all_subnets
+                if subnet not in subnets
+            )
+
+
     @route(name='calc_dijkstra', path='/dijkstra', methods=['GET', 'POST'], requirements={})
     def calc_dijkstra(self, req: Request, **_kwargs) -> Response:
         switch_list: List[Switch] = get_all_switch(self.__app)
@@ -105,20 +134,24 @@ class DijkstraCommand(ControllerBase):
         # lista = json.loads(req.body)
         """
         FORMATO RICHIESTA:
-        [
-            { "switch_src": id_switch_1, "switch_dst": id_switch_2, "ritardo": ..., "capacità": ... },
-            { "switch_src": id_switch_2, "switch_dst": id_switch_1, "ritardo": ..., "capacità": ... },
-            ...
-        ] 
+        {
+            # TODO: Capire come fare per risalire all'IP dell'interfaccia a cui inoltrare ...
+            "networks": [
+                { "switch_id": <id>, "subnets": [ <ip_net_addr>, ... ] },
+                { ... }
+            ],
+            "links": [
+                { "switch_src": id_switch_1, "switch_dst": id_switch_2, "ritardo": ..., "capacità": ... },
+                { "switch_src": id_switch_2, "switch_dst": id_switch_1, "ritardo": ..., "capacità": ... },
+                ...
+            ]
+        }
         """
 
-        net_graph = NetLinkGraph(parent_app=self.__app, switches=switch_list, links=links_dict)
-        results = net_graph.dijkstra(starting_switch_id=switch_list[0].dp.id)
-
         # DEBUG
-        for r, it in results.items():
-            print(f"id={r} con costo {it.cost} (Prev: id={net_graph.switch_map[it.previous_dpid].dp.id if it.previous_dpid else None})")        
-        print()
+        # for r, it in results.items():
+            # print(f"id={r} con costo {it.cost} (Prev: id={net_graph.switch_map[it.previous_dpid].dp.id if it.previous_dpid else None})")        
+        # print()
 
         """
         FORMATO RISPOSTA:
@@ -129,5 +162,8 @@ class DijkstraCommand(ControllerBase):
             <ogni switch dovrebbe avere una rotta per ciascuna subnet nota>
         ]
         """
-        return Response(status=200)
+        request = json.loads(req.body)
+        net_graph = NetLinkGraph(parent_app=self.__app, switches=switch_list, links=links_dict)
+        json_response = self.distance_dict_to_json(net_graph=net_graph, networks=request["networks"])
+        return Response(status=200, content_type="application/json", body=json_response)
         
