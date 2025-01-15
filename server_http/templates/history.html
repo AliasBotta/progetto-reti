@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Storico misurazioni per host: {{ ip_dest }}</h2>
+
+<button id="goBackBtn" class="btn btn-secondary mb-3">Torna alla Home</button>
+
+<!-- Grafico Storico -->
+<div class="row">
+  <div class="col-12">
+    <h4>Grafico RTT per {{ ip_dest }}</h4>
+    <canvas id="hostHistoryChart"></canvas>
+    <div class="mt-3">
+      <strong>Average RTT: </strong><span id="hostAvgRtt"></span> ms<br>
+      <strong>Std Dev RTT: </strong><span id="hostStdRtt"></span> ms
+    </div>
+  </div>
+</div>
+
+<!-- Tabella con tutti i record -->
+<div class="row mt-4">
+  <div class="col-12">
+    <h4>Elenco completo delle misurazioni</h4>
+    <table class="table table-bordered" id="measurementsTable">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>IP Dest</th>
+          <th>IP Src</th>
+          <th>RTT (ms)</th>
+          <th>Duration (s)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Popolato via JS -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+<script>
+// Crea linee orizzontali/annotazioni
+function createMeanAnnotation(meanValue, color='rgba(0,0,0,0.4)', label='Mean') {
+  return {
+    type: 'line',
+    yMin: meanValue,
+    yMax: meanValue,
+    borderColor: color,
+    borderWidth: 2,
+    borderDash: [6, 6],
+    label: {
+      enabled: true,
+      content: label,
+      position: 'end'
+    }
+  };
+}
+
+// Grafico
+let hostHistoryChart = new Chart(document.getElementById('hostHistoryChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    datasets: [{
+      label: 'RTT (ms)',
+      data: [],
+      borderColor: 'rgb(54, 162, 235)',
+      fill: false
+    }]
+  },
+  options: {
+    plugins: {
+      annotation: { annotations: {} }
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        title: { display: true, text: 'Measurement Index' }
+      },
+      y: {
+        title: { display: true, text: 'RTT (ms)' }
+      }
+    }
+  }
+});
+
+let hostParam = "{{ ip_dest }}"; // passata dal render_template
+
+// Carica dati da /get_host_history_data?ip_dest=...
+fetch(`/get_host_history_data?ip_dest=${encodeURIComponent(hostParam)}`)
+  .then(res => res.json())
+  .then(data => {
+    if(!data.chart_data) {
+      console.error("Nessun dato per l'host:", hostParam);
+      return;
+    }
+    // Aggiorna grafico
+    hostHistoryChart.data.datasets[0].data = data.chart_data;
+    
+    if(!hostHistoryChart.options.plugins.annotation.annotations) {
+      hostHistoryChart.options.plugins.annotation.annotations = {};
+    }
+    hostHistoryChart.options.plugins.annotation.annotations['meanLine'] =
+      createMeanAnnotation(data.avg_rtt, 'rgba(255,0,0,0.4)', 'Mean RTT');
+
+    hostHistoryChart.update();
+    
+    document.getElementById('hostAvgRtt').innerText = data.avg_rtt.toFixed(2);
+    document.getElementById('hostStdRtt').innerText = data.std_rtt.toFixed(2);
+
+    // Popola tabella
+    let tbody = document.querySelector('#measurementsTable tbody');
+    data.measurements.forEach(m => {
+      let tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${m.timestamp}</td>
+        <td>${m.ip_dest}</td>
+        <td>${m.ip_src}</td>
+        <td>${m.rtt}</td>
+        <td>${m.duration}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  })
+  .catch(err => console.error(err));
+
+// Bottone "Torna alla Home"
+document.getElementById('goBackBtn').addEventListener('click', () => {
+  window.location.href = "/";
+});
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+# *
+# Environment directory
+server_http/bin/
+server_http/include/
+server_http/lib/
+server_http/lib64/
+server_http/pyvenv.cfg
+server_http/*.db
+server_http/lib64
+mininet_config/.venv/
