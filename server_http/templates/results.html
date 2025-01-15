@@ -157,8 +157,8 @@ let historyChart = new Chart(document.getElementById('historyChart').getContext(
 
 setInterval(() => {
   // 1) Dati correnti
-  fetch('/get_current_data')
-    .then(res => res.json())
+  fetch('/get_current_data')//invia una richiesta GET alla route specificata
+    .then(res => res.json()) // estrae la risposta dal JSON
     .then(currentData => {
       if(!currentData || !currentData.measurements) return { currentMax: 0 };
 
@@ -233,7 +233,7 @@ setInterval(() => {
         });
     })
     .then(({ currentMax, histMax }) => {
-      // Normalizzazione altezze
+      // Normalizzazione altezze, fa in modo che entrambi i grafici abbiano la stessa altezza, per facilitare il confronto visivo
       let unifiedMax = Math.max(currentMax || 0, histMax || 0);
       if(unifiedMax < 1) unifiedMax = 1;
       currentChart.options.scales.y.suggestedMax = unifiedMax;
@@ -243,7 +243,7 @@ setInterval(() => {
     })
     .catch(err => console.log(err));
 
-}, 2000);
+}, 2000); //2000 significa che la funzione verrà eseguita ogni 2000 millisecondi, perciò il grafico verrà aggiornato a 0.5 fps
 
 // STOP
 document.getElementById('stopBtn').addEventListener('click', () => {

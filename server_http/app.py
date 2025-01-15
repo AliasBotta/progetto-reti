@@ -6,7 +6,8 @@ import socket
 from datetime import datetime
 from statistics import mean, stdev
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify 
+# jsonfy è una funzione di Flask che converte i dati di input in una risposta formattata come JSON
 
 app = Flask(__name__)
 
@@ -14,20 +15,20 @@ DATABASE = 'rtt_measurements.db'
 PING_INTERVAL = 1
 
 # Variabili globali per gestire lo stato della misurazione
-measurement_thread = None
-stop_flag = False
-current_measurements = []
-start_time = None
-current_ip_dest = None
-test_duration = 0
-measurement_start_dt = None
+measurement_thread = None #contiene il riferimento al thread che esegue la funzione di misurazione del RTT
+stop_flag = False # segnale di interruzione per il thread di misurazione
+current_measurements = [] # lista atta a memorizzare i risultati temporanei delle misurazioni RTT
+start_time = None # memorizza il timestamp di inizio della misurazione corrente, serve a determinare la durata della misurazione
+current_ip_dest = None # ip dell'host da pingare
+test_duration = 0 # durata del test in secondi
+measurement_start_dt = None # come start_time, serve però a memorizzare la timestamp sul database
 
 def init_db():
     """
     Inizializza il database SQLite e crea la tabella measurements se non esiste.
     """
     conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
+    c = conn.cursor() # crea un cursore che funge da intermediario tra python e il db
     c.execute('''
         CREATE TABLE IF NOT EXISTS measurements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +66,7 @@ def get_ip_src():
         ip_src = sock.getsockname()[0]
         sock.close()
     except:
-        ip_src = "127.0.0.1"
+        ip_src = "127.0.0.1" # !!! mettere qui l'indirizzo di default
     return ip_src
 
 def ping_once(ip_dest):
@@ -94,8 +95,8 @@ def measure_rtt(ip_dest, duration):
     nel DB e in current_measurements. Si interrompe se stop_flag è True
     o se è trascorsa la durata.
     """
-    global stop_flag, current_measurements, start_time
-    ip_src = get_ip_src()
+    global stop_flag, current_measurements, start_time # specifico che utilizzerò queste variabili globali
+    ip_src = get_ip_src() 
     start_time = time.time()
     end_time = start_time + duration
 
@@ -152,7 +153,7 @@ def stop_measurement():
     """
     global stop_flag
     stop_flag = True
-    return jsonify({"status": "stopped"})
+    return jsonify({"status": "stopped"}) 
 
 @app.route('/get_current_data', methods=['GET'])
 def get_current_data():
@@ -298,6 +299,7 @@ def get_host_history_data():
             "rtt":       r[3],
             "duration":  r[4]
         })
+    measurements_list.reverse() # inverti la lista per una migliore resa visiva della tabella
 
     return jsonify({
         "chart_data": data_for_chart,
