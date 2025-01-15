@@ -3,7 +3,7 @@ from typing import List, Dict, Union, Optional, Any
 import json
 
 from mininet.net import Mininet
-from mininet.node import Controller, RemoteController, OVSSwitch
+from mininet.node import RemoteController, OVSSwitch
 from mininet.link import TCLink
 from mininet.topo import Topo
 from mininet.cli import CLI

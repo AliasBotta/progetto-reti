@@ -6,14 +6,9 @@ import sys
 
 from ryu.base import app_manager
 from ryu.app.rest_router import RestRouterAPI
-from ryu.app import rest_router
 from ryu.app.wsgi import ControllerBase, Request, Response, route, WSGIApplication
-from ryu.controller import ofp_event
-from ryu.topology import event
-from ryu.topology.switches import Link, Switch, Port, Host
-from ryu.topology.api import get_all_switch, get_all_link, get_host
-from ryu.controller.handler import MAIN_DISPATCHER
-from ryu.controller.handler import set_ev_cls
+from ryu.topology.switches import Link, Switch, Port
+from ryu.topology.api import get_all_switch, get_all_link
 from ryu.ofproto import ofproto_v1_3
 
 @dataclass(frozen=True)
