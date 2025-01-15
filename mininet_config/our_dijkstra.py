@@ -45,19 +45,29 @@ class NetLinkGraph():
         self.parent_app = parent_app
         self.switch_map: Dict[int, Switch] = { switch.dp.id: switch for switch in switches }
 
+        def weight_function(params: Optional[Dict[str, Any]]) -> float:
+            if params is None:
+                return 1 # Costo Unitario
+            
+            ALPHA, BETA = 1, 1
+            r, C = params["delay"], params["bw"]
+            r = float(r[:-2]) * (10 ** -3) # delay termina in "ms", da scartare; convertito da ms -> s
+            C = float(C) * (10 ** 3)       # convertito da Mbps -> bps
+            return (ALPHA * r) / (BETA * C)
+
+
         # Mappa (id_src, id_dst) -> Costo fra i link
         self.node_adjacency: Dict[Tuple[int, int], float] = defaultdict(lambda: 0)
         for link in links.keys():
             src: Port = link.src
             dst: Port = link.dst
 
-            def weight_function(params):
-                # r, C = params["r"], params["C"]
-                return 1
-
             # I seguenti corrispondono ai PESI dei collegamenti fra switch ADIACENTI
-            self.node_adjacency[src.dpid, dst.dpid] = weight_function(connection_parameters.get((src.dpid, dst.dpid), None))
-            self.node_adjacency[dst.dpid, src.dpid] = 1 # Superfluo, credo
+            cost = weight_function(connection_parameters.get((src.dpid, dst.dpid), None))
+            print(f"cost between {src.dpid} and {dst.dpid} = {cost}")
+            self.node_adjacency[src.dpid, dst.dpid] = cost
+            self.node_adjacency[dst.dpid, src.dpid] = cost
+        print()
 
         # DEBUG CODE
         for (src_dpid, dst_dpid) in (self.node_adjacency.keys()):
@@ -229,7 +239,24 @@ class DijkstraCommand(ControllerBase):
         """
         request = json.loads(req.body)
         print(request)
-        net_graph = NetLinkGraph(parent_app=self.__app, switches=switch_list, links=links_dict)
+
+        connection_parameters = {
+            (int(link["src_switch"]["id"]), int(link["dst_switch"]["id"])): {
+                "bw": link["bw"],
+                "delay": link["delay"]
+            }
+            for link in request["links"]
+        } if use_params else {}
+
+        net_graph = NetLinkGraph(parent_app=self.__app, switches=switch_list, links=links_dict, connection_parameters=connection_parameters)
         json_response = self.distance_dict_to_json(net_graph=net_graph, networks=request["networks"], links=request["links"])
         return Response(status=200, content_type="application/json", body=json_response)
         
+
+    @route(name='calc_dijkstra', path='/dijkstra_unit', methods=['POST'], requirements={})
+    def calc_dijkstra_unit(self, req: Request, **_kwargs) -> Response:
+        """
+        Una rotta aggiuntiva per applicare l'algoritmo di Dijkstra
+        con costo unitario, senza considerare eventuali parametri di banda e delay.
+        """
+        return self.calc_dijkstra(req=req, use_params=False)
