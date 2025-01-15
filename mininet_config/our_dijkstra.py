@@ -17,12 +17,30 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 
 @dataclass(frozen=True)
-class DistanceEntry():
-    cost: int
+class DijkstraDistanceEntry():
+    """
+    Classe che rappresenta una singola entry nel vettore utilizzato
+    dall'algoritmo di Dijkstra per identificare un singolo nodo del
+    grafo su cui calcolare i percorsi minimi.
+    """
+
+    cost: float
     previous_dpid: Optional[int]
     
 
 class NetLinkGraph():
+    """
+    Classe che memorizza la topologia degli switch di una rete
+    contenente più subnet all'interno di una matrice delle adiacenze.
+    Tale matrice ha come entrate i costi dei collegamenti fra coppie
+    di switch nella topologia.
+
+    La funzione interna `weight_function` è usata per calcolare il costo
+    di ciascun collegamento sulla base del loro ritardo di trasmissione e
+    capacità di banda.
+    Se tali informazioni sono assenti, si assume il costo unitario.
+    """    
+
     def __init__(self, parent_app: app_manager.RyuApp, switches: List[Switch], links: Dict[Link, float], connection_parameters={}):
         self.parent_app = parent_app
         self.switch_map: Dict[int, Switch] = { switch.dp.id: switch for switch in switches }
@@ -45,9 +63,16 @@ class NetLinkGraph():
         for (src_dpid, dst_dpid) in (self.node_adjacency.keys()):
             print(f"Lo switch {src_dpid} raggiunge {dst_dpid}")
 
-    def dijkstra(self, starting_switch_id: int) -> Dict[int, DistanceEntry]:
-        distances: Dict[int, DistanceEntry] = {
-            id: DistanceEntry(
+
+    def dijkstra(self, starting_switch_id: int) -> Dict[int, DijkstraDistanceEntry]:
+        """
+        Metodo che calcola i percorsi minimi per raggiungere ogni subnet
+        della rete a partire dallo switch avente come id `starting_switch_id`.
+        Restituisce un dizionario contenente tutti i risultati ottenuti.
+        """
+
+        distances: Dict[int, DijkstraDistanceEntry] = {
+            id: DijkstraDistanceEntry(
                 cost=(0 if id == starting_switch_id else sys.maxsize),
                 previous_dpid=None
             )
@@ -72,12 +97,19 @@ class NetLinkGraph():
 
                 new_cost = distances[current_switch].cost + self.node_adjacency[current_switch, neighboring_switch.dp.id]
                 if new_cost < distances[neighboring_switch.dp.id].cost:
-                    distances[neighboring_switch.dp.id] = DistanceEntry(cost=new_cost, previous_dpid=current_switch)
+                    distances[neighboring_switch.dp.id] = DijkstraDistanceEntry(cost=new_cost, previous_dpid=current_switch)
 
         return distances
 
 
 class DijkstraRouter(RestRouterAPI):
+    """
+    Classe controller ryu che funge da router per l'API REST.
+    Estende la classe `RestRouterAPI` che implementa le funzionalità del server REST
+    incluso insieme al codice di libreria di ryu, introducendo due nuove rotte descritte
+    in `DijkstraCommand` per consentire il routing dinamico mediante algoritmo di Dijkstra.
+    """
+
     _CONTEXTS = { 'wsgi': WSGIApplication }
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -92,12 +124,26 @@ class DijkstraRouter(RestRouterAPI):
 
 
 class DijkstraCommand(ControllerBase):
+    """
+    Classe che implementa le rotte aggiuntive con cui estendere
+    l'API REST offerta dalla classe `RestRouterAPI`.
+    """
+
     def __init__(self, req, link, data, **config):
         super().__init__(req, link, data, **config)
         self.__app = data["app"] # Recuperiamo l'applicazione per poter
         # fare uso dell'API ryu.topology
 
     def distance_dict_to_json(self, net_graph: NetLinkGraph, networks: List[Dict[str, Union[int, List[str]]]], links: List[Dict[str, Any]]):
+        """
+        Metodo che, dato il grafo della topologia della rete ed
+        informazioni riguardanti le subnet ed i link al suo interno,
+        ricostruisce il percorso ottimale verso ogni subnet per ciascuno
+        switch e restituisce il risultato in formato JSON compatibile con
+        una successiva chiamata alla rotta /router/{switch_id} per applicare
+        la configurazione calcolata.
+        """
+
         response: List[Dict[str, Union[int, str]]] = []
         link_map: Dict[Tuple[int, int], Any] = {
             (entry["src_switch"]["id"], entry["dst_switch"]["id"]): entry
@@ -135,11 +181,14 @@ class DijkstraCommand(ControllerBase):
 
 
     @route(name='calc_dijkstra', path='/dijkstra', methods=['POST'], requirements={})
-    def calc_dijkstra(self, req: Request, **_kwargs) -> Response:
+    def calc_dijkstra(self, req: Request, use_params: bool = True, **_kwargs) -> Response:
+        """
+        Rotta che riceve in POST i dati che descrivono le subnet utenti della topologia
+        di rete su cui determinare le rotte ottimali mediante algoritmo di Dijkstra.
+        """
         switch_list: List[Switch] = get_all_switch(self.__app)
         links_dict: Dict[Link, float] = get_all_link(self.__app)
 
-        # lista = json.loads(req.body)
         """
         FORMATO RICHIESTA:
         {
