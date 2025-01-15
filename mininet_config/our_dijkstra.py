@@ -52,7 +52,7 @@ class NetLinkGraph():
             ALPHA, BETA = 1, 1
             r, C = params["delay"], params["bw"]
             r = float(r[:-2]) * (10 ** -3) # delay termina in "ms", da scartare; convertito da ms -> s
-            C = float(C) * (10 ** 3)       # convertito da Mbps -> bps
+            C = float(C) * (10 ** 6)       # convertito da Mbps -> bps
             return (ALPHA * r) / (BETA * C)
 
 
